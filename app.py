@@ -143,6 +143,30 @@ def analyze_stocks():
     return df, data_list
 
 
+def should_show_in_buy_recommendations(symbol, current_price):
+    """Check if a stock should be shown in buy recommendations"""
+    initialize_tracker()
+    
+    # Check if stock is in tracker
+    tracked_stocks = st.session_state.tracked_stocks
+    for tracked in tracked_stocks:
+        if tracked['symbol'] == symbol:
+            purchase_price = tracked['purchase_price']
+            # Calculate drop from purchase price
+            drop_from_purchase = ((purchase_price - current_price) / purchase_price) * 100
+            
+            # Only show if price has dropped 3.14% or more from purchase price
+            if drop_from_purchase >= TARGET_PERCENTAGE:
+                logger.info(f"{symbol}: Already tracked, but dropped {drop_from_purchase:.2f}% from purchase (${purchase_price:.2f}) - showing in recommendations")
+                return True
+            else:
+                logger.info(f"{symbol}: Already tracked, dropped only {drop_from_purchase:.2f}% from purchase (${purchase_price:.2f}) - hiding from recommendations")
+                return False
+    
+    # Not in tracker, show it
+    return True
+
+
 def determine_buy_stocks(df):
     """Determine which stocks to buy based on the algorithm"""
     logger.info("=" * 50)
@@ -154,6 +178,27 @@ def determine_buy_stocks(df):
     
     if eligible_stocks.empty:
         logger.info("No eligible stocks found - returning empty DataFrame")
+        return pd.DataFrame()
+    
+    # Filter out stocks already in tracker (unless dropped 3.14% from purchase)
+    initialize_tracker()
+    filtered_stocks = []
+    hidden_count = 0
+    
+    for idx, stock in eligible_stocks.iterrows():
+        if should_show_in_buy_recommendations(stock['symbol'], stock['current_price']):
+            filtered_stocks.append(idx)
+        else:
+            hidden_count += 1
+    
+    if hidden_count > 0:
+        logger.info(f"Hidden {hidden_count} stock(s) already in tracker (not dropped 3.14% from purchase)")
+    
+    eligible_stocks = eligible_stocks.loc[filtered_stocks].copy()
+    logger.info(f"Eligible stocks after filtering tracked stocks: {len(eligible_stocks)}")
+    
+    if eligible_stocks.empty:
+        logger.info("No eligible stocks after filtering - returning empty DataFrame")
         return pd.DataFrame()
     
     # Get the top stock's drop percentage
