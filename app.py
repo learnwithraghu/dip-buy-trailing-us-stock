@@ -226,12 +226,18 @@ def save_tracker_to_csv():
             df.to_csv(TRACKER_CSV_FILE, index=False)
             logger.info(f"Saved {len(st.session_state.tracked_stocks)} stocks to {TRACKER_CSV_FILE}")
         else:
-            # Create empty CSV with headers if no stocks
+            # Create empty CSV with headers if no stocks (for cloud persistence)
             empty_df = pd.DataFrame(columns=['symbol', 'name', 'purchase_price', 'shares', 'purchase_date', 'target_price', 'allocation_aed'])
             empty_df.to_csv(TRACKER_CSV_FILE, index=False)
             logger.info(f"Created empty tracker CSV file")
     except Exception as e:
         logger.error(f"Error saving tracker CSV: {str(e)}")
+        # Try to create the file if it doesn't exist (for cloud environments)
+        try:
+            empty_df = pd.DataFrame(columns=['symbol', 'name', 'purchase_price', 'shares', 'purchase_date', 'target_price', 'allocation_aed'])
+            empty_df.to_csv(TRACKER_CSV_FILE, index=False)
+        except Exception as e2:
+            logger.error(f"Failed to create CSV file: {str(e2)}")
 
 
 def initialize_tracker():
